@@ -1,0 +1,128 @@
+name: Build XStream Native
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-xstream-native.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build ARM64 APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out build harness
+        uses: actions/checkout@v4
+
+      - name: Check out pinned XStreaming source
+        shell: bash
+        run: |
+          git clone https://github.com/Geocld/XStreaming.git XStreaming
+          cd XStreaming
+          git checkout 383e19d324f2d3029d1c304752f4d38a9360bb95
+          git rev-parse HEAD
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Yarn
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare yarn@4.2.2 --activate
+          yarn --version
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;23.1.7779620" \
+            "cmake;3.22.1"
+
+      - name: Apply XStream Native v0.1 changes
+        shell: bash
+        run: |
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpST09UID0gUGF0aCgiWFN0cmVhbWluZyIpCgpkZWYgcmVwbGFjZShwYXRoLCBvbGQsIG5ldyk6CiAgICBwID0gUk9PVCAvIHBhdGgKICAgIHRleHQgPSBwLnJlYWRfdGV4dCgpCiAgICBpZiBvbGQgbm90IGluIHRleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChmIkV4cGVjdGVkIHNvdXJjZSB0ZXh0IG5vdCBmb3VuZCBpbiB7cGF0aH06IHtvbGRbOjEwMF0hcn0iKQogICAgcC53cml0ZV90ZXh0KHRleHQucmVwbGFjZShvbGQsIG5ldywgMSkpCgpyZXBsYWNlKAogICAgImFuZHJvaWQvYXBwL3NyYy9tYWluL3Jlcy92YWx1ZXMvc3RyaW5ncy54bWwiLAogICAgJzxzdHJpbmcgbmFtZT0iYXBwX25hbWUiPlhTdHJlYW1pbmc8L3N0cmluZz4nLAogICAgJzxzdHJpbmcgbmFtZT0iYXBwX25hbWUiPlhTdHJlYW0gTmF0aXZlPC9zdHJpbmc+JywKKQpyZXBsYWNlKAogICAgImFwcC5qc29uIiwKICAgICciZGlzcGxheU5hbWUiOiAieHN0cmVhbWluZyInLAogICAgJyJkaXNwbGF5TmFtZSI6ICJYU3RyZWFtIE5hdGl2ZSInLAopCgpyZXBsYWNlKAogICAgImFuZHJvaWQvYXBwL2J1aWxkLmdyYWRsZSIsCiAgICAnJycgICAgICAgIHByb2QgewogICAgICAgICAgICBkaW1lbnNpb24gImVudmlyb25tZW50IgogICAgICAgICAgICBhcHBsaWNhdGlvbklkICJjb20ueHN0cmVhbWluZyIKICAgICAgICB9JycnLAogICAgJycnICAgICAgICBwcm9kIHsKICAgICAgICAgICAgZGltZW5zaW9uICJlbnZpcm9ubWVudCIKICAgICAgICAgICAgYXBwbGljYXRpb25JZCAiY29tLnhzdHJlYW1uYXRpdmUiCiAgICAgICAgfScnJywKKQoKcmVwbGFjZSgKICAgICJhbmRyb2lkL2FwcC9idWlsZC5ncmFkbGUiLAogICAgJycnICAgICAgICByZWxlYXNlIHsKICAgICAgICAgICAgLy8gQ2F1dGlvbiEgSW4gcHJvZHVjdGlvbiwgeW91IG5lZWQgdG8gZ2VuZXJhdGUgeW91ciBvd24ga2V5c3RvcmUgZmlsZS4KICAgICAgICAgICAgLy8gc2VlIGh0dHBzOi8vcmVhY3RuYXRpdmUuZGV2L2RvY3Mvc2lnbmVkLWFway1hbmRyb2lkLgogICAgICAgICAgICBzaWduaW5nQ29uZmlnIHNpZ25pbmdDb25maWdzLmRlYnVnCiAgICAgICAgICAgIHNpZ25pbmdDb25maWcgc2lnbmluZ0NvbmZpZ3MucmVsZWFzZQogICAgICAgICAgICBtaW5pZnlFbmFibGVkIGVuYWJsZVByb2d1YXJkSW5SZWxlYXNlQnVpbGRzJycnLAogICAgJycnICAgICAgICByZWxlYXNlIHsKICAgICAgICAgICAgLy8gVXNlIHRoZSBjb25maWd1cmVkIHJlbGVhc2Uga2V5IG9ubHkgd2hlbiBpdHMgZmlsZSBleGlzdHMuCiAgICAgICAgICAgIC8vIExvY2FsL3Rlc3QgYnVpbGRzIGZhbGwgYmFjayB0byB0aGUgYnVuZGxlZCBBbmRyb2lkIGRlYnVnIGtleS4KICAgICAgICAgICAgZGVmIHJlbGVhc2VTdG9yZSA9IHByb2plY3QuaGFzUHJvcGVydHkoJ1hTVFJFQU1JTkdfUkVMRUFTRV9TVE9SRV9GSUxFJykKICAgICAgICAgICAgICAgICAgICA/IGZpbGUoWFNUUkVBTUlOR19SRUxFQVNFX1NUT1JFX0ZJTEUpCiAgICAgICAgICAgICAgICAgICAgOiBudWxsCiAgICAgICAgICAgIGlmIChyZWxlYXNlU3RvcmUgIT0gbnVsbCAmJiByZWxlYXNlU3RvcmUuZXhpc3RzKCkpIHsKICAgICAgICAgICAgICAgIHNpZ25pbmdDb25maWcgc2lnbmluZ0NvbmZpZ3MucmVsZWFzZQogICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgc2lnbmluZ0NvbmZpZyBzaWduaW5nQ29uZmlncy5kZWJ1ZwogICAgICAgICAgICB9CiAgICAgICAgICAgIG1pbmlmeUVuYWJsZWQgZW5hYmxlUHJvZ3VhcmRJblJlbGVhc2VCdWlsZHMnJycsCikKCnJlcGxhY2UoCiAgICAiYW5kcm9pZC9hcHAvYnVpbGQuZ3JhZGxlIiwKICAgICcnJ2RlZiBuYW5vUnVzdEhvc3RUYWcgPSB7IG5ka0RpciAtPgogICAgZGVmIGFybVRhZyA9IGZpbGUoIiR7bmRrRGlyfS90b29sY2hhaW5zL2xsdm0vcHJlYnVpbHQvZGFyd2luLWFybTY0IikKICAgIGlmIChhcm1UYWcuZXhpc3RzKCkpIHsKICAgICAgICByZXR1cm4gImRhcndpbi1hcm02NCIKICAgIH0KICAgIHJldHVybiAiZGFyd2luLXg4Nl82NCIKfScnJywKICAgICcnJ2RlZiBuYW5vUnVzdEhvc3RUYWcgPSB7IG5ka0RpciAtPgogICAgZGVmIHByZWJ1aWx0Um9vdCA9IGZpbGUoIiR7bmRrRGlyfS90b29sY2hhaW5zL2xsdm0vcHJlYnVpbHQiKQogICAgZGVmIG9zTmFtZSA9IFN5c3RlbS5nZXRQcm9wZXJ0eSgib3MubmFtZSIpLnRvTG93ZXJDYXNlKCkKICAgIGRlZiBvc0FyY2ggPSBTeXN0ZW0uZ2V0UHJvcGVydHkoIm9zLmFyY2giKS50b0xvd2VyQ2FzZSgpCiAgICBkZWYgY2FuZGlkYXRlcyA9IFtdCiAgICBpZiAob3NOYW1lLmNvbnRhaW5zKCJtYWMiKSkgewogICAgICAgIGlmIChvc0FyY2guY29udGFpbnMoImFhcmNoNjQiKSB8fCBvc0FyY2guY29udGFpbnMoImFybTY0IikpIHsKICAgICAgICAgICAgY2FuZGlkYXRlcy5hZGQoImRhcndpbi1hcm02NCIpCiAgICAgICAgfQogICAgICAgIGNhbmRpZGF0ZXMuYWRkKCJkYXJ3aW4teDg2XzY0IikKICAgIH0gZWxzZSBpZiAob3NOYW1lLmNvbnRhaW5zKCJ3aW4iKSkgewogICAgICAgIGNhbmRpZGF0ZXMuYWRkKCJ3aW5kb3dzLXg4Nl82NCIpCiAgICB9IGVsc2UgewogICAgICAgIGNhbmRpZGF0ZXMuYWRkKCJsaW51eC14ODZfNjQiKQogICAgfQogICAgZGVmIGRldGVjdGVkID0gY2FuZGlkYXRlcy5maW5kIHsgdGFnIC0+CiAgICAgICAgZmlsZSgiJHtwcmVidWlsdFJvb3R9LyR7dGFnfSIpLmV4aXN0cygpCiAgICB9CiAgICBpZiAoZGV0ZWN0ZWQgPT0gbnVsbCkgewogICAgICAgIHRocm93IG5ldyBHcmFkbGVFeGNlcHRpb24oCiAgICAgICAgICAgICAgICAiTm8gY29tcGF0aWJsZSBBbmRyb2lkIE5ESyBob3N0IHRvb2xjaGFpbiBmb3VuZCB1bmRlciAke3ByZWJ1aWx0Um9vdH0iKQogICAgfQogICAgcmV0dXJuIGRldGVjdGVkCn0nJycsCikKCnJlcGxhY2UoCiAgICAic3JjL3BhZ2VzL1NldHRpbmdzLnRzeCIsCiAgICAiaW1wb3J0IHtnZXRTZXR0aW5ncywgcmVzZXRTZXR0aW5nc30gZnJvbSAnLi4vc3RvcmUvc2V0dGluZ1N0b3JlJzsiLAogICAgImltcG9ydCB7Z2V0U2V0dGluZ3MsIHJlc2V0U2V0dGluZ3MsIHNhdmVTZXR0aW5nc30gZnJvbSAnLi4vc3RvcmUvc2V0dGluZ1N0b3JlJzsiLAopCgpyZXBsYWNlKAogICAgInNyYy9wYWdlcy9TZXR0aW5ncy50c3giLAogICAgJycnICBjb25zdCBoYW5kbGVDbGVhckNhY2hlID0gKCkgPT4geycnJywKICAgICcnJyAgY29uc3QgYXBwbHlBNTNMb3dMYXRlbmN5UHJlc2V0ID0gUmVhY3QudXNlQ2FsbGJhY2soKCkgPT4gewogICAgY29uc3QgY3VycmVudCA9IGdldFNldHRpbmdzKCk7CiAgICBzYXZlU2V0dGluZ3MoewogICAgICAuLi5jdXJyZW50LAogICAgICByZXNvbHV0aW9uOiAxMDgwLAogICAgICByZW5kZXJfZW5naW5lOiAnbmF0aXZlJywKICAgICAgbmF0aXZlX2xvd19sYXRlbmN5X2RlY29kZXI6IHRydWUsCiAgICAgIHhob21lX2JpdHJhdGVfbW9kZTogJ2F1dG8nLAogICAgICB4Y2xvdWRfYml0cmF0ZV9tb2RlOiAnYXV0bycsCiAgICAgIGNvZGVjOiAnJywKICAgICAgZnNyOiBmYWxzZSwKICAgICAgcG9sbGluZ19yYXRlOiAyNTAsCiAgICAgIGdhbWVwYWRfa2VybmFsOiAnTmF0aXZlJywKICAgICAgc2hvd19wZXJmb3JtYW5jZTogdHJ1ZSwKICAgICAgcGVyZm9ybWFuY2Vfc3R5bGU6IHRydWUsCiAgICAgIHBlcmZvcm1hbmNlX29wYWNpdHk6IDAuOCwKICAgICAgc2hvd19zZXNzaW9uX3JlcG9ydDogdHJ1ZSwKICAgIH0pOwogICAgQWxlcnQuYWxlcnQoCiAgICAgICdHYWxheHkgQTUzIGxvdy1sYXRlbmN5IHByZXNldCcsCiAgICAgICdBcHBsaWVkIDEwODBwLCBOYXRpdmUgcmVuZGVyaW5nLCB1bHRyYS1sb3ctbGF0ZW5jeSBkZWNvZGluZywgYXV0b21hdGljIGJpdHJhdGUvY29kZWMsIDI1MCBIeiBjb250cm9sbGVyIHBvbGxpbmcsIEZTUiBvZmYsIGFuZCBsaXZlIGRpYWdub3N0aWNzLiBTdGFydCBhIG5ldyBzdHJlYW0gdG8gdXNlIHRoZSBwcmVzZXQuJywKICAgICk7CiAgfSwgW10pOwoKICBjb25zdCBoYW5kbGVDbGVhckNhY2hlID0gKCkgPT4geycnJywKKQoKcmVwbGFjZSgKICAgICJzcmMvcGFnZXMvU2V0dGluZ3MudHN4IiwKICAgICcnJyAgICBkaXNwbGF5LmZvckVhY2gobWV0YSA9PiB7CiAgICAgIGxpc3QucHVzaCgoKSA9PiBoYW5kbGVJdGVtUHJlc3MobWV0YS5uYW1lKSk7CiAgICB9KTsKICAgIGxpc3QucHVzaCgoKSA9PiB7JycnLAogICAgJycnICAgIGRpc3BsYXkuZm9yRWFjaChtZXRhID0+IHsKICAgICAgbGlzdC5wdXNoKCgpID0+IGhhbmRsZUl0ZW1QcmVzcyhtZXRhLm5hbWUpKTsKICAgIH0pOwogICAgbGlzdC5wdXNoKCgpID0+IGFwcGx5QTUzTG93TGF0ZW5jeVByZXNldCgpKTsKICAgIGxpc3QucHVzaCgoKSA9PiB7JycnLAopCgpyZXBsYWNlKAogICAgInNyYy9wYWdlcy9TZXR0aW5ncy50c3giLAogICAgIiAgfSwgW25hdmlnYXRpb24sIGN1cnJlbnRMYW5ndWFnZSwgaXNBdXRoZWQsIHRdKTsiLAogICAgIiAgfSwgW25hdmlnYXRpb24sIGN1cnJlbnRMYW5ndWFnZSwgaXNBdXRoZWQsIHQsIGFwcGx5QTUzTG93TGF0ZW5jeVByZXNldF0pOyIsCikKCnJlcGxhY2UoCiAgICAic3JjL3BhZ2VzL1NldHRpbmdzLnRzeCIsCiAgICAnJycgICAgICAgICAge3JlbmRlckl0ZW0oCiAgICAgICAgICAgIHQoJ0Rpc3BsYXknKSwnJycsCiAgICAnJycgICAgICAgICAge3JlbmRlckl0ZW0oCiAgICAgICAgICAgICdHYWxheHkgQTUzIGxvdy1sYXRlbmN5IHByZXNldCcsCiAgICAgICAgICAgICdPbmUgdGFwOiAxMDgwcCBOYXRpdmUgKyB1bHRyYS1sb3ctbGF0ZW5jeSBkZWNvZGUgKyBBdXRvIGJpdHJhdGUgKyAyNTAgSHogaW5wdXQgKyBsaXZlIGRpYWdub3N0aWNzJywKICAgICAgICAgICAgYXBwbHlBNTNMb3dMYXRlbmN5UHJlc2V0LAogICAgICAgICAgICAnYTUzX2xvd19sYXRlbmN5X3ByZXNldCcsCiAgICAgICAgICApfQoKICAgICAgICAgIHtyZW5kZXJJdGVtKAogICAgICAgICAgICB0KCdEaXNwbGF5JyksJycnLAopCgpwID0gUk9PVCAvICJzcmMvY29tcG9uZW50cy9QZXJmUGFuZWwudHN4Igp0ZXh0ID0gcC5yZWFkX3RleHQoKQoKbWFya2VyID0gImNvbnN0IHtCYXR0ZXJ5TW9kdWxlfSA9IE5hdGl2ZU1vZHVsZXM7XG4iCmlmIG1hcmtlciBub3QgaW4gdGV4dDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIlBlcmZQYW5lbCBCYXR0ZXJ5TW9kdWxlIG1hcmtlciBub3QgZm91bmQiKQoKaGVscGVycyA9IHInJycKY29uc3QgbWV0cmljTnVtYmVyID0gKHZhbHVlOiB1bmtub3duKSA9PiB7CiAgaWYgKHR5cGVvZiB2YWx1ZSA9PT0gJ251bWJlcicpIHsKICAgIHJldHVybiBOdW1iZXIuaXNGaW5pdGUodmFsdWUpICYmIHZhbHVlID49IDAgPyB2YWx1ZSA6IHVuZGVmaW5lZDsKICB9CiAgaWYgKHR5cGVvZiB2YWx1ZSAhPT0gJ3N0cmluZycpIHJldHVybiB1bmRlZmluZWQ7CiAgY29uc3QgbWF0Y2ggPSB2YWx1ZS5tYXRjaCgvLT9cZCsoPzpcLlxkKyk/Lyk7CiAgaWYgKCFtYXRjaCkgcmV0dXJuIHVuZGVmaW5lZDsKICBjb25zdCBwYXJzZWQgPSBOdW1iZXIobWF0Y2hbMF0pOwogIHJldHVybiBOdW1iZXIuaXNGaW5pdGUocGFyc2VkKSAmJiBwYXJzZWQgPj0gMCA/IHBhcnNlZCA6IHVuZGVmaW5lZDsKfTsKCmNvbnN0IG1ldHJpY1BlcmNlbnQgPSAodmFsdWU6IHVua25vd24pID0+IHsKICBpZiAodHlwZW9mIHZhbHVlICE9PSAnc3RyaW5nJykgcmV0dXJuIHVuZGVmaW5lZDsKICBjb25zdCBtYXRjaCA9IHZhbHVlLm1hdGNoKC9cKCgtP1xkKyg/OlwuXGQrKT8pJVwpLyk7CiAgaWYgKCFtYXRjaCkgcmV0dXJuIHVuZGVmaW5lZDsKICBjb25zdCBwYXJzZWQgPSBOdW1iZXIobWF0Y2hbMV0pOwogIHJldHVybiBOdW1iZXIuaXNGaW5pdGUocGFyc2VkKSAmJiBwYXJzZWQgPj0gMCA/IHBhcnNlZCA6IHVuZGVmaW5lZDsKfTsKCnR5cGUgU3RyZWFtSGVhbHRoID0gewogIGxhYmVsOiBzdHJpbmc7CiAgZGV0YWlsOiBzdHJpbmc7CiAgc2V2ZXJpdHk6ICdnb29kJyB8ICd3YXJuJyB8ICdiYWQnOwp9OwoKY29uc3QgZ2V0U3RyZWFtSGVhbHRoID0gKHBlcmZvcm1hbmNlOiBhbnkpOiBTdHJlYW1IZWFsdGggPT4gewogIGNvbnN0IHJ0dCA9IG1ldHJpY051bWJlcihwZXJmb3JtYW5jZS5ydHQpOwogIGNvbnN0IGppdHRlciA9IG1ldHJpY051bWJlcihwZXJmb3JtYW5jZS5qaXQpOwogIGNvbnN0IGZwcyA9IG1ldHJpY051bWJlcihwZXJmb3JtYW5jZS5mcHMpOwogIGNvbnN0IGRlY29kZSA9IG1ldHJpY051bWJlcihwZXJmb3JtYW5jZS5kZWNvZGUpOwogIGNvbnN0IHBhY2tldExvc3MgPSBtZXRyaWNQZXJjZW50KHBlcmZvcm1hbmNlLnBsKTsKICBjb25zdCBmcmFtZURyb3AgPSBtZXRyaWNQZXJjZW50KHBlcmZvcm1hbmNlLmZsKTsKCiAgaWYgKAogICAgW3J0dCwgaml0dGVyLCBmcHMsIGRlY29kZSwgcGFja2V0TG9zcywgZnJhbWVEcm9wXS5ldmVyeSgKICAgICAgdmFsdWUgPT4gdmFsdWUgPT09IHVuZGVmaW5lZCwKICAgICkKICApIHsKICAgIHJldHVybiB7bGFiZWw6ICdNZWFzdXJpbmcnLCBkZXRhaWw6ICdjb2xsZWN0aW5nIHN0YXRzJywgc2V2ZXJpdHk6ICdnb29kJ307CiAgfQoKICBjb25zdCBwcm9ibGVtczogQXJyYXk8U3RyZWFtSGVhbHRoICYge3Njb3JlOiBudW1iZXJ9PiA9IFtdOwoKICBpZiAocGFja2V0TG9zcyAhPT0gdW5kZWZpbmVkICYmIHBhY2tldExvc3MgPiAwLjUpIHsKICAgIHByb2JsZW1zLnB1c2goewogICAgICBsYWJlbDogJ1BhY2tldCBsb3NzJywKICAgICAgZGV0YWlsOiBgJHtwYWNrZXRMb3NzLnRvRml4ZWQoMSl9JWAsCiAgICAgIHNldmVyaXR5OiBwYWNrZXRMb3NzID4gMiA/ICdiYWQnIDogJ3dhcm4nLAogICAgICBzY29yZTogcGFja2V0TG9zcyA+IDIgPyAxMDAgOiA2MCwKICAgIH0pOwogIH0KCiAgaWYgKHJ0dCAhPT0gdW5kZWZpbmVkICYmIHJ0dCA+IDM1KSB7CiAgICBwcm9ibGVtcy5wdXNoKHsKICAgICAgbGFiZWw6ICdOZXR3b3JrIFJUVCcsCiAgICAgIGRldGFpbDogYCR7TWF0aC5yb3VuZChydHQpfW1zYCwKICAgICAgc2V2ZXJpdHk6IHJ0dCA+IDYwID8gJ2JhZCcgOiAnd2FybicsCiAgICAgIHNjb3JlOiBydHQgPiA2MCA/IDkwIDogNTAsCiAgICB9KTsKICB9CgogIGlmIChqaXR0ZXIgIT09IHVuZGVmaW5lZCAmJiBqaXR0ZXIgPiA4KSB7CiAgICBwcm9ibGVtcy5wdXNoKHsKICAgICAgbGFiZWw6ICdKaXR0ZXInLAogICAgICBkZXRhaWw6IGAke01hdGgucm91bmQoaml0dGVyKX1tc2AsCiAgICAgIHNldmVyaXR5OiBqaXR0ZXIgPiAxMiA/ICdiYWQnIDogJ3dhcm4nLAogICAgICBzY29yZTogaml0dGVyID4gMTIgPyA4NSA6IDQ1LAogICAgfSk7CiAgfQoKICBpZiAoZGVjb2RlICE9PSB1bmRlZmluZWQgJiYgZGVjb2RlID4gMTApIHsKICAgIHByb2JsZW1zLnB1c2goewogICAgICBsYWJlbDogJ0RlY29kZXInLAogICAgICBkZXRhaWw6IGAke2RlY29kZS50b0ZpeGVkKDEpfW1zYCwKICAgICAgc2V2ZXJpdHk6IGRlY29kZSA+IDE0ID8gJ2JhZCcgOiAnd2FybicsCiAgICAgIHNjb3JlOiBkZWNvZGUgPiAxNCA/IDgwIDogNDAsCiAgICB9KTsKICB9CgogIGlmICgKICAgIChmcHMgIT09IHVuZGVmaW5lZCAmJiBmcHMgPiAwICYmIGZwcyA8IDU1KSB8fAogICAgKGZyYW1lRHJvcCAhPT0gdW5kZWZpbmVkICYmIGZyYW1lRHJvcCA+IDAuNSkKICApIHsKICAgIGNvbnN0IGJhZCA9CiAgICAgIChmcHMgIT09IHVuZGVmaW5lZCAmJiBmcHMgPiAwICYmIGZwcyA8IDUyKSB8fAogICAgICAoZnJhbWVEcm9wICE9PSB1bmRlZmluZWQgJiYgZnJhbWVEcm9wID4gMik7CiAgICBwcm9ibGVtcy5wdXNoKHsKICAgICAgbGFiZWw6ICdGcmFtZSBkZWxpdmVyeScsCiAgICAgIGRldGFpbDoKICAgICAgICBmcHMgIT09IHVuZGVmaW5lZCAmJiBmcHMgPiAwCiAgICAgICAgICA/IGAke01hdGgucm91bmQoZnBzKX0gRlBTYAogICAgICAgICAgOiBgJHtmcmFtZURyb3A/LnRvRml4ZWQoMSkgPz8gJz8nfSUgZHJvcGAsCiAgICAgIHNldmVyaXR5OiBiYWQgPyAnYmFkJyA6ICd3YXJuJywKICAgICAgc2NvcmU6IGJhZCA/IDc1IDogMzUsCiAgICB9KTsKICB9CgogIGlmICghcHJvYmxlbXMubGVuZ3RoKSB7CiAgICByZXR1cm4ge2xhYmVsOiAnU3RhYmxlJywgZGV0YWlsOiAnc3RyZWFtIGxvb2tzIGhlYWx0aHknLCBzZXZlcml0eTogJ2dvb2QnfTsKICB9CgogIHByb2JsZW1zLnNvcnQoKGEsIGIpID0+IGIuc2NvcmUgLSBhLnNjb3JlKTsKICBjb25zdCB7bGFiZWwsIGRldGFpbCwgc2V2ZXJpdHl9ID0gcHJvYmxlbXNbMF07CiAgcmV0dXJuIHtsYWJlbCwgZGV0YWlsLCBzZXZlcml0eX07Cn07CgonJycKdGV4dCA9IHRleHQucmVwbGFjZShtYXJrZXIsIG1hcmtlciArICJcbiIgKyBoZWxwZXJzLmxzdHJpcCgiXG4iKSwgMSkKCm9sZCA9ICIgIGNvbnN0IGlzSG9yaXpvbiA9IHNldHRpbmdzLnBlcmZvcm1hbmNlX3N0eWxlO1xuIgpuZXcgPSAnJycgIGNvbnN0IGlzSG9yaXpvbiA9IHNldHRpbmdzLnBlcmZvcm1hbmNlX3N0eWxlOwogIGNvbnN0IHN0cmVhbUhlYWx0aCA9IFJlYWN0LnVzZU1lbW8oCiAgICAoKSA9PiBnZXRTdHJlYW1IZWFsdGgocGVyZm9ybWFuY2UpLAogICAgW3BlcmZvcm1hbmNlXSwKICApOwonJycKaWYgb2xkIG5vdCBpbiB0ZXh0OgogICAgcmFpc2UgU3lzdGVtRXhpdCgiUGVyZlBhbmVsIGlzSG9yaXpvbiBtYXJrZXIgbm90IGZvdW5kIikKdGV4dCA9IHRleHQucmVwbGFjZShvbGQsIG5ldywgMSkKCm9sZCA9ICIgICAgICA8VmlldyBzdHlsZT17aXNIb3Jpem9uID8gc3R5bGVzLndyYXBwZXJIIDogc3R5bGVzLndyYXBwZXJWfT5cbiIKbmV3ID0gJycnICAgICAgPFZpZXcgc3R5bGU9e2lzSG9yaXpvbiA/IHN0eWxlcy53cmFwcGVySCA6IHN0eWxlcy53cmFwcGVyVn0+CiAgICAgICAgPFZpZXc+CiAgICAgICAgICA8VGV4dAogICAgICAgICAgICBzdHlsZT17WwogICAgICAgICAgICAgIHN0eWxlcy50ZXh0LAogICAgICAgICAgICAgIHN0eWxlcy5oZWFsdGhUZXh0LAogICAgICAgICAgICAgIHN0cmVhbUhlYWx0aC5zZXZlcml0eSA9PT0gJ2JhZCcKICAgICAgICAgICAgICAgID8gc3R5bGVzLmhlYWx0aEJhZAogICAgICAgICAgICAgICAgOiBzdHJlYW1IZWFsdGguc2V2ZXJpdHkgPT09ICd3YXJuJwogICAgICAgICAgICAgICAgPyBzdHlsZXMuaGVhbHRoV2FybgogICAgICAgICAgICAgICAgOiBzdHlsZXMuaGVhbHRoR29vZCwKICAgICAgICAgICAgXX0+CiAgICAgICAgICAgIEhlYWx0aDoge3N0cmVhbUhlYWx0aC5sYWJlbH0gKHtzdHJlYW1IZWFsdGguZGV0YWlsfSl7JyAnfQogICAgICAgICAgICB7aXNIb3Jpem9uID8gJ3wgJyA6ICcnfQogICAgICAgICAgPC9UZXh0PgogICAgICAgIDwvVmlldz4KJycnCmlmIG9sZCBub3QgaW4gdGV4dDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIlBlcmZQYW5lbCB3cmFwcGVyIG1hcmtlciBub3QgZm91bmQiKQp0ZXh0ID0gdGV4dC5yZXBsYWNlKG9sZCwgbmV3LCAxKQoKb2xkID0gJycnICB0ZXh0OiB7CiAgICBmb250U2l6ZTogMTAsCiAgICBjb2xvcjogJyNmZmYnLAogIH0sCicnJwpuZXcgPSAnJycgIHRleHQ6IHsKICAgIGZvbnRTaXplOiAxMCwKICAgIGNvbG9yOiAnI2ZmZicsCiAgfSwKICBoZWFsdGhUZXh0OiB7CiAgICBmb250V2VpZ2h0OiAnNzAwJywKICB9LAogIGhlYWx0aEdvb2Q6IHsKICAgIGNvbG9yOiAnI2I4ZjdjNScsCiAgfSwKICBoZWFsdGhXYXJuOiB7CiAgICBjb2xvcjogJyNmZmU0OWEnLAogIH0sCiAgaGVhbHRoQmFkOiB7CiAgICBjb2xvcjogJyNmZmIwYjAnLAogIH0sCicnJwppZiBvbGQgbm90IGluIHRleHQ6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJQZXJmUGFuZWwgc3R5bGUgbWFya2VyIG5vdCBmb3VuZCIpCnRleHQgPSB0ZXh0LnJlcGxhY2Uob2xkLCBuZXcsIDEpCnAud3JpdGVfdGV4dCh0ZXh0KQoKcHJpbnQoIlhTdHJlYW0gTmF0aXZlIHYwLjEgcGF0Y2ggYXBwbGllZCBzdWNjZXNzZnVsbHkiKQo=' | base64 -d > /tmp/patch_xstream.py
+          python3 /tmp/patch_xstream.py
+          git -C XStreaming status --short
+          git -C XStreaming diff --check
+
+      - name: Install JavaScript dependencies
+        working-directory: XStreaming
+        shell: bash
+        run: yarn install --immutable
+
+      - name: Configure Android SDK path
+        shell: bash
+        run: printf 'sdk.dir=%s\n' "$ANDROID_HOME" > XStreaming/android/local.properties
+
+      - name: Build XStream Native ARM64 release
+        working-directory: XStreaming/android
+        shell: bash
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleProdRelease \
+            -PreactNativeArchitectures=arm64-v8a \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            --no-daemon \
+            --max-workers=1 \
+            -Dorg.gradle.jvmargs="-Xmx2560m -XX:MaxMetaspaceSize=512m" \
+            --stacktrace
+
+      - name: Verify and stage APK
+        shell: bash
+        run: |
+          APK="$(find XStreaming/android/app/build/outputs/apk -type f -name '*.apk' | grep '/prod/release/' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" XStream-Native-v0.1-arm64.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose XStream-Native-v0.1-arm64.apk
+          {
+            echo "XStream Native v0.1"
+            echo "Upstream commit: 383e19d324f2d3029d1c304752f4d38a9360bb95"
+            echo
+            "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging XStream-Native-v0.1-arm64.apk | head -n 8
+            echo
+            sha256sum XStream-Native-v0.1-arm64.apk
+            echo
+            echo "Native ABIs:"
+            unzip -l XStream-Native-v0.1-arm64.apk | awk '/lib\/[^/]+\/.*\.so$/ {print $4}' | cut -d/ -f2 | sort -u
+          } | tee build-info.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XStream-Native-v0.1-arm64
+          path: |
+            XStream-Native-v0.1-arm64.apk
+            build-info.txt
+          if-no-files-found: error
+          retention-days: 30
