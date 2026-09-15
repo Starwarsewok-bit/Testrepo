@@ -81,6 +81,21 @@ jobs:
           git -C XStreaming status --short
           git -C XStreaming diff --check
 
+      - name: Repair malformed upstream react-native-paper patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("XStreaming/patches/react-native-paper+5.12.5.patch")
+          text = p.read_text()
+          bad = "@@ -270,7 +262,7 @@ const styles = StyleSheet.create({"
+          good = "@@ -270,6 +270,6 @@ const styles = StyleSheet.create({"
+          if bad not in text:
+              raise SystemExit("Expected malformed react-native-paper patch header not found")
+          p.write_text(text.replace(bad, good, 1))
+          print("Repaired react-native-paper patch header")
+          PY
+
       - name: Install JavaScript dependencies
         working-directory: XStreaming
         shell: bash
